@@ -1,0 +1,33 @@
+{
+  "name": "mongoef",
+  "version": "0.0.1",
+  "description": "POC Mongo Object Mapper",
+  "main": "dist/index.js",
+  "types": "dist/index.d.ts",
+  "scripts": {
+    "build": "tsc", 
+    "prepublishOnly": "npm run build" 
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/RuedaDeRepuesto/mongoef.git"
+  },
+  "keywords": [
+    "mongo",
+    "ts",
+    "mapper"
+  ],
+  "author": "k-games",
+  "license": "MIT",
+  "bugs": {
+    "url": "https://github.com/RuedaDeRepuesto/mongoef/issues"
+  },
+  "homepage": "https://github.com/RuedaDeRepuesto/mongoef#readme",
+  "devDependencies": {
+    "ts-node": "^10.9.2",
+    "typescript": "^5.6.2"
+  },
+  "dependencies": {
+    "mongodb": "^6.9.0"
+  }
+}
