@@ -1,4 +1,4 @@
-import { ObjectId } from "mongodb";
+import { ObjectId, UpdateOptions } from "mongodb";
 import { DbContext, _collectionNameRegistry } from "./DbContext";
 
 

@@ -1,4 +1,4 @@
-import { Collection, Filter, FindOptions, ObjectId } from "mongodb";
+import { Collection, Document, Filter, FindOptions, ObjectId } from "mongodb";
 import { _collectionNameRegistry } from "./DbContext";
 import { Model } from "./Model";
 
@@ -12,7 +12,7 @@ export class MongoEFCollection<T extends Model> {
         return _collectionNameRegistry[className] || className.toLowerCase(); 
     }
 
-    public async filter(filter:Filter<any>,options?: FindOptions){
+    public async filter(filter:Filter<Document>,options?: FindOptions){
         return this.selectInternal(filter,options);
     }
 
@@ -20,6 +20,35 @@ export class MongoEFCollection<T extends Model> {
         return this.selectInternal();
     }
 
+    public async get(id:string|ObjectId|Filter<Document>,throwIfNotExists = false){
+        let item;
+        if (id instanceof ObjectId) {
+            item = await this.selectInternal({_id:id});
+        }else if (typeof id === 'string'){
+            item = await this.selectInternal({_id:new ObjectId(id)});
+        }else{
+            item = await this.selectInternal(id);
+        }
+        
+        if(item.length > 0){
+            return item[0];
+        }else{
+            if(throwIfNotExists){
+                throw 'Id '+id+' not found in collection '+this.getCollectionName();
+            }
+            return null;
+        }
+    }
+
+    public async getOrNew(id:string|ObjectId|Filter<Document>){
+        const item = await this.get(id);
+        if(item){
+            return item;
+        }else{
+            const newObj = new this.modelType();
+            return newObj;
+        }
+    }
 
     public async delete(obj: T | T[] | ObjectId) {
         if (obj instanceof ObjectId) {
@@ -39,7 +68,7 @@ export class MongoEFCollection<T extends Model> {
         throw new Error('Invalid argument type.'); 
     }
 
-    private async selectInternal(filter?: Filter<any>, options?: FindOptions) {
+    private async selectInternal(filter?: Filter<Document>, options?: FindOptions) {
         let cursor;
 
         if (filter) {
