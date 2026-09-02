@@ -5,4 +5,5 @@ export { Index } from './MongoIndex';
 export * from './JsonIgnore';
 export * from './NotMapped';
 export * from './SoftDelete';
+export * from './Validators';
 export * from './metadata';
