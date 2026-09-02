@@ -1,6 +1,6 @@
 {
   "name": "mongoef",
-  "version": "0.0.1",
+  "version": "1.0.0",
   "description": "MongoDB Object Mapper con decoradores al estilo Entity Framework",
   "main": "dist/index.js",
   "types": "dist/index.d.ts",
