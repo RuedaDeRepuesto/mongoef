@@ -8,6 +8,7 @@ import { Index } from '../src/decorators/MongoIndex';
 import { JsonIgnore } from '../src/decorators/JsonIgnore';
 import { NotMapped } from '../src/decorators/NotMapped';
 import { SoftDelete } from '../src/decorators/SoftDelete';
+import { Required, MaxLength, MinLength, Min, Max } from '../src/decorators/Validators';
 
 // ─── Modelos de prueba ────────────────────────────────────────────────────────
 
@@ -37,9 +38,51 @@ class TestPost extends Model {
     user?: TestUser;
 }
 
+@CollectionName('test_products')
+class TestProduct extends Model {
+    @Required('El nombre es obligatorio')
+    @MinLength(3, 'El nombre debe tener al menos 3 caracteres')
+    @MaxLength(20, 'El nombre no puede exceder 20 caracteres')
+    title: string = '';
+
+    @Min(0, 'El precio debe ser al menos 0')
+    @Max(1000, 'El precio no puede exceder 1000')
+    price: number = 0;
+}
+
+// ─── Modelos simulando minificación (mismo constructor.name: "e") ───────────
+
+const MinifiedA = (() => {
+    class e extends Model {
+        @Column('col_a')
+        fieldA: string = 'valorA';
+
+        @Required('Requerido en A')
+        reqField: string = 'ok';
+    }
+    CollectionName('test_minified_a')(e);
+    return e;
+})();
+
+const MinifiedB = (() => {
+    class e extends Model {
+        @Column('col_b')
+        fieldB: string = 'valorB';
+
+        @NotMapped
+        ignoredField: string = 'no-guardar';
+    }
+    CollectionName('test_minified_b')(e);
+    SoftDelete(e);
+    return e;
+})();
+
 class TestContext extends DbContext {
     users: MongoEFCollection<TestUser> = new MongoEFCollection(TestUser);
     posts: MongoEFCollection<TestPost> = new MongoEFCollection(TestPost);
+    products: MongoEFCollection<TestProduct> = new MongoEFCollection(TestProduct);
+    minifiedA: MongoEFCollection<any> = new MongoEFCollection(MinifiedA);
+    minifiedB: MongoEFCollection<any> = new MongoEFCollection(MinifiedB);
 }
 
 // ─── Runner ───────────────────────────────────────────────────────────────────
@@ -62,6 +105,9 @@ async function runTests(url: string): Promise<void> {
 
     await context.connection.collection('test_users').deleteMany({});
     await context.connection.collection('test_posts').deleteMany({});
+    await context.connection.collection('test_products').deleteMany({});
+    await context.connection.collection('test_minified_a').deleteMany({});
+    await context.connection.collection('test_minified_b').deleteMany({});
 
     let passed = 0;
     let failed = 0;
@@ -217,6 +263,20 @@ async function runTests(url: string): Promise<void> {
         assert(results.length === 1, 'Debe encontrar 1 usuario con nombre Ana');
     });
 
+    await test('.query().where().where() acumula filtros con $and', async () => {
+        const results = await context.users.query()
+            .where({ name: 'Ana' })
+            .where({ email: 'ana@test.com' })
+            .toList();
+        assert(results.length === 1, 'Debe encontrar a Ana al coincidir ambos filtros');
+
+        const empty = await context.users.query()
+            .where({ name: 'Ana' })
+            .where({ email: 'jorge@test.com' })
+            .toList();
+        assert(empty.length === 0, 'No debe encontrar resultados si no coinciden ambos filtros');
+    });
+
     await test('.query().orderBy().toList() ordena correctamente', async () => {
         const results = await context.users.query().orderBy('name', 'asc').toList();
         assert(results[0].name <= results[1].name, 'Debe estar ordenado ascendente');
@@ -307,13 +367,134 @@ async function runTests(url: string): Promise<void> {
         assert(hasIndex, 'Debe existir un índice sobre email');
     });
 
+    // ── Validaciones ──────────────────────────────────────────────────────────
+
+    console.log('\n🛡️  Validaciones (@Required, @MinLength, @MaxLength, @Min, @Max)');
+
+    await test('validate() reporta errores sin guardar', async () => {
+        const p = new TestProduct();
+        p.title = '';
+        p.price = -10;
+
+        const errors = p.validate();
+        assert(errors.some(e => e.includes('El nombre es obligatorio')), 'Debe requerir nombre');
+        assert(errors.some(e => e.includes('El precio debe ser al menos 0')), 'Debe validar precio mínimo');
+    });
+
+    await test('save() rechaza documento que no cumple validaciones', async () => {
+        const p = new TestProduct();
+        p.title = 'AB'; // demasiado corto (min 3)
+        p.price = 2000; // demasiado alto (max 1000)
+
+        let threw = false;
+        try {
+            await p.save(context);
+        } catch (err: any) {
+            threw = true;
+            assert(err.message.includes('Validación fallida'), 'El error debe indicar falla de validación');
+        }
+        assert(threw, 'save() debe arrojar excepción si las validaciones fallan');
+    });
+
+    await test('save() persiste exitosamente cuando las validaciones se cumplen', async () => {
+        const p = new TestProduct();
+        p.title = 'Teclado Mecánico';
+        p.price = 150;
+
+        await p.save(context);
+        assert(p._id !== undefined, 'Debe asignar _id tras insert exitoso');
+    });
+
+    // ── Resistencia a minificación (constructor.name colisionante) ───────────
+
+    console.log('\n🔒 Resistencia a minificación (colisión de constructor.name)');
+
+    await test('clases con el mismo constructor.name ("e") tienen nombres de colección independientes', async () => {
+        assert(MinifiedA.name === 'e', 'MinifiedA.name debe ser "e"');
+        assert(MinifiedB.name === 'e', 'MinifiedB.name debe ser "e"');
+        assert(context.minifiedA.getCollectionName() === 'test_minified_a', 'minifiedA debe ser "test_minified_a"');
+        assert(context.minifiedB.getCollectionName() === 'test_minified_b', 'minifiedB debe ser "test_minified_b"');
+    });
+
+    await test('clases con el mismo .name no comparten ni pisan mapeos de @Column ni @NotMapped', async () => {
+        const itemA = new MinifiedA();
+        itemA.fieldA = 'hola A';
+        await itemA.save(context);
+
+        const itemB = new MinifiedB();
+        itemB.fieldB = 'hola B';
+        await itemB.save(context);
+
+        const rawA = await context.connection.collection('test_minified_a').findOne({ _id: itemA._id });
+        const rawB = await context.connection.collection('test_minified_b').findOne({ _id: itemB._id });
+
+        assert(rawA?.col_a === 'hola A', 'MinifiedA debe guardar en col_a');
+        assert(rawA?.col_b === undefined, 'MinifiedA no debe tener col_b de MinifiedB');
+
+        assert(rawB?.col_b === 'hola B', 'MinifiedB debe guardar en col_b');
+        assert(rawB?.col_a === undefined, 'MinifiedB no debe tener col_a de MinifiedA');
+        assert(rawB?.ignoredField === undefined, 'MinifiedB debe respetar @NotMapped');
+    });
+
+    await test('clases con el mismo .name no comparten @SoftDelete indebidamente', async () => {
+        const itemA = new MinifiedA();
+        itemA.fieldA = 'borrar A';
+        await itemA.save(context);
+
+        const itemB = new MinifiedB();
+        itemB.fieldB = 'borrar B';
+        await itemB.save(context);
+
+        // Borrar A debe ser hard delete
+        await context.minifiedA.delete(itemA);
+        const rawA = await context.connection.collection('test_minified_a').findOne({ _id: itemA._id });
+        assert(rawA === null, 'MinifiedA debe borrarse físicamente (no tiene SoftDelete)');
+
+        // Borrar B debe ser soft delete
+        await context.minifiedB.delete(itemB);
+        const rawB = await context.connection.collection('test_minified_b').findOne({ _id: itemB._id });
+        assert(rawB !== null && rawB.deletedAt !== null && rawB.deletedAt !== undefined, 'MinifiedB debe borrarse lógicamente (tiene SoftDelete)');
+    });
+
+    await test('clases con el mismo .name no comparten reglas de validación', async () => {
+        const itemB = new MinifiedB();
+        const errorsB = itemB.validate();
+        assert(errorsB.length === 0, 'MinifiedB no debe heredar las validaciones de MinifiedA');
+
+        const itemA = new MinifiedA();
+        itemA.reqField = '';
+        const errorsA = itemA.validate();
+        assert(errorsA.some(e => e.includes('Requerido en A')), 'MinifiedA sí debe validar sus propias reglas');
+    });
+
+    // ── Disconnect ────────────────────────────────────────────────────────────
+
+    console.log('\n🔌 Disconnect');
+
+    await test('disconnect() cierra el MongoClient y anula la conexión activa', async () => {
+        // Limpiamos antes de desconectar
+        await context.connection.collection('test_users').deleteMany({});
+        await context.connection.collection('test_posts').deleteMany({});
+        await context.connection.collection('test_products').deleteMany({});
+        await context.connection.collection('test_minified_a').deleteMany({});
+        await context.connection.collection('test_minified_b').deleteMany({});
+
+        await context.disconnect();
+
+        let threw = false;
+        try {
+            const _conn = context.connection;
+        } catch (err: any) {
+            threw = true;
+            assert(err.message.includes('No hay conexión activa'), 'Debe arrojar que no hay conexión activa');
+        }
+        assert(threw, 'Acceder a context.connection tras disconnect() debe arrojar error');
+    });
+
     // ─────────────────────────────────────────────────────────────────────────
 
     console.log(`\n${'─'.repeat(40)}`);
     console.log(`Total: ${passed + failed} | ✅ ${passed} pasaron | ❌ ${failed} fallaron`);
-
-    await context.connection.collection('test_users').deleteMany({});
-    await context.connection.collection('test_posts').deleteMany({});
     console.log('\nColecciones de prueba limpiadas.\n');
 
     process.exit(failed > 0 ? 1 : 0);
