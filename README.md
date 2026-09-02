@@ -128,15 +128,38 @@ await context.posts.delete(unPost);
 const todos = await context.posts.query().withDeleted().toList();
 ```
 
+### Validaciones (`@Required`, `@MinLength`, `@MaxLength`, `@Min`, `@Max`)
+
+Validación declarativa antes de persistir. `model.save(context)` ejecuta automáticamente `model.validate()` y lanza un error si alguna regla falla.
+
+```typescript
+class Product extends Model {
+    @Required('El nombre es obligatorio')
+    @MinLength(3)
+    @MaxLength(50)
+    name: string = '';
+
+    @Min(0)
+    @Max(10000)
+    price: number = 0;
+}
+
+const p = new Product();
+p.name = 'AB';
+const errors = p.validate(); // ['name no alcanza el largo mínimo de 3']
+await p.save(context);       // Error: [mongoef] Validación fallida: ...
+```
+
 ---
 
 ## QueryBuilder
 
-El método `.query()` retorna un builder fluido para componer consultas.
+El método `.query()` retorna un builder fluido para componer consultas. Llamadas sucesivas a `.where()` acumulan condiciones automáticamente usando `$and`.
 
 ```typescript
 const resultados = await context.users
     .query({ activo: true })
+    .where({ rol: 'editor' }) // Se combina con $and
     .orderBy('nombre', 'asc')
     .skip(20)
     .take(10)
@@ -176,6 +199,10 @@ class AppContext extends DbContext {
 
 const context = new AppContext('mongodb://localhost:27017', 'mi_db', false);
 await context.connect(); // Inicializa colecciones y crea índices
+
+// ... operaciones con la BD ...
+
+await context.disconnect(); // Cierra MongoClient y libera conexiones
 ```
 
 > **Nota:** El parámetro `autoConnect` está deprecado. Siempre usá `false` y llamá `await context.connect()` manualmente.
