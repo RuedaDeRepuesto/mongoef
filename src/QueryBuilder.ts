@@ -17,10 +17,17 @@ export class QueryBuilder<T> {
 
     /**
      * Aplica un filtro a la consulta.
+     * Si ya existe un filtro previo, los combina con `$and`.
      * @param filter Filtro de MongoDB.
      */
     public where(filter: Filter<Document>): this {
-        this._filter = filter;
+        if (Object.keys(this._filter).length === 0) {
+            this._filter = filter;
+        } else if (this._filter.$and) {
+            (this._filter.$and as any[]).push(filter);
+        } else {
+            this._filter = { $and: [this._filter, filter] } as Filter<Document>;
+        }
         return this;
     }
 
