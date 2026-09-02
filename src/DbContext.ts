@@ -6,14 +6,13 @@ export { _collectionNameRegistry } from './decorators/metadata';
 
 export class DbContext {
     private _connection: Db | undefined;
+    private _client: MongoClient | undefined;
 
     /**
      * Crea una nueva instancia de DbContext.
      * @param url URL de conexión a MongoDB.
      * @param dbName Nombre de la base de datos.
      * @param autoConnect @deprecated Pasar `false` y llamar `await context.connect()` manualmente.
-     *                    El comportamiento async en el constructor causa que las colecciones no queden
-     *                    inicializadas a tiempo.
      */
     constructor(private url: string, private dbName: string, autoConnect = false) {
         if (autoConnect) {
@@ -27,8 +26,8 @@ export class DbContext {
      * También crea automáticamente los índices definidos con @Index en cada modelo.
      */
     public async connect(): Promise<void> {
-        const client = await MongoClient.connect(this.url);
-        this._connection = client.db(this.dbName);
+        this._client = await MongoClient.connect(this.url);
+        this._connection = this._client.db(this.dbName);
 
         for (const key of Object.keys(this)) {
             const value = (this as any)[key];
@@ -37,10 +36,21 @@ export class DbContext {
             const mongoCollection = this.connection.collection(value.getCollectionName());
             value.collection = mongoCollection;
 
-            const indexes = getIndexes(value.getModelTypeName());
+            const indexes = getIndexes(value.getModelType());
             for (const idx of indexes) {
                 await mongoCollection.createIndex(idx.key, idx.options ?? {});
             }
+        }
+    }
+
+    /**
+     * Cierra la conexión con MongoDB y libera los recursos.
+     */
+    public async disconnect(): Promise<void> {
+        if (this._client) {
+            await this._client.close();
+            this._client = undefined;
+            this._connection = undefined;
         }
     }
 
