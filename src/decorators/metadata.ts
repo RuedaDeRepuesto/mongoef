@@ -1,13 +1,16 @@
-export const _collectionNameRegistry: Record<string, string> = {};
-export const _jsonIgnoreRegistry: Record<string, Set<string>> = {};
-export const _columnRegistry: Record<string, Record<string, string>> = {};
-export const _notMappedRegistry: Record<string, Set<string>> = {};
-export const _foreignKeyRegistry: Record<string, Record<string, ForeignKeyMeta>> = {};
-export const _indexRegistry: Record<string, IndexMeta[]> = {};
-export const _softDeleteRegistry: Set<string> = new Set();
+export type Constructor = new (...args: any[]) => any;
+
+export const _collectionNameRegistry: Map<Constructor, string> = new Map();
+export const _jsonIgnoreRegistry: Map<Constructor, Set<string>> = new Map();
+export const _columnRegistry: Map<Constructor, Record<string, string>> = new Map();
+export const _notMappedRegistry: Map<Constructor, Set<string>> = new Map();
+export const _foreignKeyRegistry: Map<Constructor, Record<string, ForeignKeyMeta>> = new Map();
+export const _indexRegistry: Map<Constructor, IndexMeta[]> = new Map();
+export const _softDeleteRegistry: Set<Constructor> = new Set();
+export const _validationRegistry: Map<Constructor, Record<string, ValidationRule[]>> = new Map();
 
 export interface ForeignKeyMeta {
-    model: () => new () => any;
+    model: () => Constructor;
     localField: string;
 }
 
@@ -16,30 +19,40 @@ export interface IndexMeta {
     options?: Record<string, any>;
 }
 
-export function getCollectionName(className: string): string {
-    return _collectionNameRegistry[className] ?? className.toLowerCase();
+export interface ValidationRule {
+    type: 'required' | 'maxLength' | 'minLength' | 'min' | 'max';
+    value?: number;
+    message?: string;
 }
 
-export function getJsonIgnoreFields(className: string): Set<string> {
-    return _jsonIgnoreRegistry[className] ?? new Set();
+export function getCollectionName(ctor: Constructor): string {
+    return _collectionNameRegistry.get(ctor) ?? ctor.name.toLowerCase();
 }
 
-export function getColumnMappings(className: string): Record<string, string> {
-    return _columnRegistry[className] ?? {};
+export function getJsonIgnoreFields(ctor: Constructor): Set<string> {
+    return _jsonIgnoreRegistry.get(ctor) ?? new Set();
 }
 
-export function getNotMappedFields(className: string): Set<string> {
-    return _notMappedRegistry[className] ?? new Set();
+export function getColumnMappings(ctor: Constructor): Record<string, string> {
+    return _columnRegistry.get(ctor) ?? {};
 }
 
-export function getForeignKeys(className: string): Record<string, ForeignKeyMeta> {
-    return _foreignKeyRegistry[className] ?? {};
+export function getNotMappedFields(ctor: Constructor): Set<string> {
+    return _notMappedRegistry.get(ctor) ?? new Set();
 }
 
-export function getIndexes(className: string): IndexMeta[] {
-    return _indexRegistry[className] ?? [];
+export function getForeignKeys(ctor: Constructor): Record<string, ForeignKeyMeta> {
+    return _foreignKeyRegistry.get(ctor) ?? {};
 }
 
-export function isSoftDelete(className: string): boolean {
-    return _softDeleteRegistry.has(className);
+export function getIndexes(ctor: Constructor): IndexMeta[] {
+    return _indexRegistry.get(ctor) ?? [];
+}
+
+export function isSoftDelete(ctor: Constructor): boolean {
+    return _softDeleteRegistry.has(ctor);
+}
+
+export function getValidationRules(ctor: Constructor): Record<string, ValidationRule[]> {
+    return _validationRegistry.get(ctor) ?? {};
 }

@@ -7,10 +7,10 @@ import { _columnRegistry } from './metadata';
  */
 export function Column(name: string) {
     return function (target: any, propertyKey: string) {
-        const className = target.constructor.name;
-        if (!_columnRegistry[className]) {
-            _columnRegistry[className] = {};
+        const ctor = target.constructor;
+        if (!_columnRegistry.has(ctor)) {
+            _columnRegistry.set(ctor, {});
         }
-        _columnRegistry[className][propertyKey] = name;
+        _columnRegistry.get(ctor)![propertyKey] = name;
     };
 }

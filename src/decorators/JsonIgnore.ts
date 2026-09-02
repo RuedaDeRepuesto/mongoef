@@ -6,9 +6,9 @@ import { _jsonIgnoreRegistry } from './metadata';
  * Útil para campos sensibles como contraseñas o tokens internos.
  */
 export function JsonIgnore(target: any, propertyKey: string) {
-    const className = target.constructor.name;
-    if (!_jsonIgnoreRegistry[className]) {
-        _jsonIgnoreRegistry[className] = new Set();
+    const ctor = target.constructor;
+    if (!_jsonIgnoreRegistry.has(ctor)) {
+        _jsonIgnoreRegistry.set(ctor, new Set());
     }
-    _jsonIgnoreRegistry[className].add(propertyKey);
+    _jsonIgnoreRegistry.get(ctor)!.add(propertyKey);
 }

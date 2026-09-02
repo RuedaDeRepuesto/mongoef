@@ -2,6 +2,7 @@ import { Collection, Document, Filter, FindOptions, ObjectId } from 'mongodb';
 import { Model } from './Model';
 import { QueryBuilder, QueryExecutor } from './QueryBuilder';
 import {
+    Constructor,
     getCollectionName,
     getColumnMappings,
     getForeignKeys,
@@ -18,14 +19,14 @@ export class MongoEFCollection<T extends Model> {
      * Retorna el nombre de la colección en MongoDB para este tipo de modelo.
      */
     public getCollectionName(): string {
-        return getCollectionName(this.modelType.name);
+        return getCollectionName(this.modelType);
     }
 
     /**
-     * Retorna el nombre de la clase del modelo. Usado internamente por DbContext para leer índices.
+     * Retorna el constructor del modelo. Usado internamente por DbContext para leer metadata.
      */
-    public getModelTypeName(): string {
-        return this.modelType.name;
+    public getModelType(): Constructor {
+        return this.modelType;
     }
 
     /**
@@ -106,7 +107,7 @@ export class MongoEFCollection<T extends Model> {
      * @returns Cantidad de documentos eliminados o afectados.
      */
     public async delete(obj: T | T[] | ObjectId): Promise<number> {
-        const softDelete = isSoftDelete(this.modelType.name);
+        const softDelete = isSoftDelete(this.modelType);
 
         if (Array.isArray(obj)) {
             const ids = obj.map(item => item._id).filter((id): id is ObjectId => id !== undefined);
@@ -160,7 +161,7 @@ export class MongoEFCollection<T extends Model> {
     }
 
     private async _executeAggregation(filter: Filter<Document>, builder: QueryBuilder<T>): Promise<T[]> {
-        const foreignKeys = getForeignKeys(this.modelType.name);
+        const foreignKeys = getForeignKeys(this.modelType);
         const pipeline: any[] = [];
 
         if (Object.keys(filter).length > 0) {
@@ -174,7 +175,7 @@ export class MongoEFCollection<T extends Model> {
             const RelatedClass = fkMeta.model();
             pipeline.push({
                 $lookup: {
-                    from: getCollectionName(RelatedClass.name),
+                    from: getCollectionName(RelatedClass),
                     localField: fkMeta.localField,
                     foreignField: '_id',
                     as: field,
@@ -202,7 +203,7 @@ export class MongoEFCollection<T extends Model> {
      * En MongoDB `{ deletedAt: null }` matchea tanto documentos con campo `null` como sin el campo.
      */
     private _applySoftDeleteFilter(filter: Filter<Document>, withDeleted = false): Filter<Document> {
-        if (isSoftDelete(this.modelType.name) && !withDeleted) {
+        if (isSoftDelete(this.modelType) && !withDeleted) {
             return { ...filter, deletedAt: null };
         }
         return filter;
@@ -218,9 +219,9 @@ export class MongoEFCollection<T extends Model> {
      */
     private _mapDocument(doc: any, includes: string[] = []): T {
         const instance = new this.modelType();
-        const columnMappings = getColumnMappings(this.modelType.name);
-        const notMapped = getNotMappedFields(this.modelType.name);
-        const foreignKeys = getForeignKeys(this.modelType.name);
+        const columnMappings = getColumnMappings(this.modelType);
+        const notMapped = getNotMappedFields(this.modelType);
+        const foreignKeys = getForeignKeys(this.modelType);
 
         instance._id = doc._id;
 
@@ -242,8 +243,8 @@ export class MongoEFCollection<T extends Model> {
             const RelatedClass = fkMeta.model();
             const relatedInstance = new RelatedClass();
             const relatedDoc = doc[field];
-            const relatedColumnMappings = getColumnMappings(RelatedClass.name);
-            const relatedNotMapped = getNotMappedFields(RelatedClass.name);
+            const relatedColumnMappings = getColumnMappings(RelatedClass);
+            const relatedNotMapped = getNotMappedFields(RelatedClass);
 
             relatedInstance._id = relatedDoc._id;
 

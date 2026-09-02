@@ -15,10 +15,9 @@ import { _indexRegistry } from './metadata';
  */
 export function Index(key: Record<string, 1 | -1 | 'text'>, options?: Record<string, any>) {
     return function (target: any) {
-        const className = target.name;
-        if (!_indexRegistry[className]) {
-            _indexRegistry[className] = [];
+        if (!_indexRegistry.has(target)) {
+            _indexRegistry.set(target, []);
         }
-        _indexRegistry[className].push({ key, options });
+        _indexRegistry.get(target)!.push({ key, options });
     };
 }

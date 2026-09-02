@@ -21,10 +21,10 @@ import { _foreignKeyRegistry } from './metadata';
  */
 export function ForeignKey(model: () => new () => any, localField: string) {
     return function (target: any, propertyKey: string) {
-        const className = target.constructor.name;
-        if (!_foreignKeyRegistry[className]) {
-            _foreignKeyRegistry[className] = {};
+        const ctor = target.constructor;
+        if (!_foreignKeyRegistry.has(ctor)) {
+            _foreignKeyRegistry.set(ctor, {});
         }
-        _foreignKeyRegistry[className][propertyKey] = { model, localField };
+        _foreignKeyRegistry.get(ctor)![propertyKey] = { model, localField };
     };
 }

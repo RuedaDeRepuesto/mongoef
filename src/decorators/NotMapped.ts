@@ -6,9 +6,9 @@ import { _notMappedRegistry } from './metadata';
  * Útil para propiedades calculadas o de uso temporal en la aplicación.
  */
 export function NotMapped(target: any, propertyKey: string) {
-    const className = target.constructor.name;
-    if (!_notMappedRegistry[className]) {
-        _notMappedRegistry[className] = new Set();
+    const ctor = target.constructor;
+    if (!_notMappedRegistry.has(ctor)) {
+        _notMappedRegistry.set(ctor, new Set());
     }
-    _notMappedRegistry[className].add(propertyKey);
+    _notMappedRegistry.get(ctor)!.add(propertyKey);
 }

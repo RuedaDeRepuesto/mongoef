@@ -7,6 +7,6 @@ import { _collectionNameRegistry } from './metadata';
  */
 export function CollectionName(name: string) {
     return function (target: any) {
-        _collectionNameRegistry[target.name] = name;
+        _collectionNameRegistry.set(target, name);
     };
 }
