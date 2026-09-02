@@ -1,14 +1,15 @@
 {
   "compilerOptions": {
-    "target": "ES6",                       // O la versión que necesites
-    "module": "CommonJS",                  // O el sistema de módulos que estés usando
-    "outDir": "./dist",                    // Carpeta donde se generarán los archivos
-    "declaration": true,                   // Genera archivos de definición (.d.ts)
-    "sourceMap": true,                     // Genera archivos de mapa fuente
-    "strict": true,                        // Habilita todas las verificaciones estrictas
-    "esModuleInterop": true,               // Interoperabilidad entre módulos
-    "skipLibCheck": true                   // Omite la verificación de tipos en archivos de definición
+    "target": "ES2018",
+    "module": "CommonJS",
+    "outDir": "./dist",
+    "declaration": true,
+    "sourceMap": true,
+    "strict": true,
+    "esModuleInterop": true,
+    "skipLibCheck": true,
+    "experimentalDecorators": true
   },
-  "include": ["src/**/*"],                // Incluye todos los archivos en la carpeta src
-  "exclude": ["node_modules", "**/*.spec.ts"] // Excluye node_modules y archivos de pruebas
+  "include": ["src/**/*"],
+  "exclude": ["node_modules", "**/*.spec.ts"]
 }

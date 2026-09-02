@@ -1,12 +1,13 @@
 {
   "name": "mongoef",
   "version": "0.0.1",
-  "description": "POC Mongo Object Mapper",
+  "description": "MongoDB Object Mapper con decoradores al estilo Entity Framework",
   "main": "dist/index.js",
   "types": "dist/index.d.ts",
   "scripts": {
-    "build": "tsc", 
-    "prepublishOnly": "npm run build" 
+    "build": "tsc",
+    "prepublishOnly": "npm run build",
+    "test": "ts-node --project tsconfig.test.json test/test.ts"
   },
   "repository": {
     "type": "git",
